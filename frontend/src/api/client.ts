@@ -1,6 +1,12 @@
-// Учитываем базовый путь сборки (vite base). При хостинге под /soil-planner/
-// запросы идут на /soil-planner/api, локально — на /api.
-const BASE_URL = `${import.meta.env.BASE_URL.replace(/\/+$/, '')}/api`
+// Учитываем базовый путь сборки (vite base). При хостинге под /soilplanner/
+// запросы идут на /soilplanner/api, локально — на /api.
+const APP_BASE = import.meta.env.BASE_URL.replace(/\/+$/, '')
+const BASE_URL = `${APP_BASE}/api`
+
+function redirectToLogin(): void {
+  localStorage.removeItem('auth-token')
+  window.location.href = `${APP_BASE}/login`
+}
 
 class ApiClient {
   private getHeaders(): HeadersInit {
@@ -15,8 +21,7 @@ class ApiClient {
   async get<T>(path: string): Promise<T> {
     const res = await fetch(`${BASE_URL}${path}`, { headers: this.getHeaders() })
     if (res.status === 401) {
-      localStorage.removeItem('auth-token')
-      window.location.href = '/login'
+      redirectToLogin()
       throw new Error('Unauthorized')
     }
     if (!res.ok) throw new Error(await res.text())
@@ -30,8 +35,7 @@ class ApiClient {
       body: body ? JSON.stringify(body) : undefined,
     })
     if (res.status === 401) {
-      localStorage.removeItem('auth-token')
-      window.location.href = '/login'
+      redirectToLogin()
       throw new Error('Unauthorized')
     }
     if (!res.ok) throw new Error(await res.text())

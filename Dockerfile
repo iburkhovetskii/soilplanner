@@ -2,12 +2,14 @@
 # Stage 1: Build frontend
 FROM node:22-slim AS frontend-build
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /frontend
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ .
+# Публичный адрес: http://<хост>/soilplanner/  (nginx срезает префикс до приложения)
+ENV VITE_BASE_PATH=/soilplanner/
 RUN pnpm build
 
 # Stage 2: Python backend + serve static
