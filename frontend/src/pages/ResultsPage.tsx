@@ -14,6 +14,70 @@ import {
 
 const WEIGHT_ROTATION_ERROR = 1000
 const WEIGHT_AREA_DEFICIT = 1
+const CHEM_ERROR_TYPE = 'Нарушение хим. интервала'
+const VALIDATION_ERRORS_SHOWN = 20
+
+type Validation = NonNullable<OptimizationResult['validation']>
+
+function ValidationPanel({ validation }: { validation: Validation }) {
+  if (validation.is_valid) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+        <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+        <span>
+          <b>Валидатор: план допустим.</b> Проверены жёсткий минимум площадей, интервалы
+          СЗР, ранний возврат культуры, повтор культуры подряд и недопустимые предшественники.
+        </span>
+      </div>
+    )
+  }
+
+  const byType = new Map<string, number>()
+  for (const e of validation.errors) {
+    const type = String(e.type)
+    byType.set(type, (byType.get(type) ?? 0) + 1)
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+        <div>
+          <b>Валидатор нашёл нарушений: {validation.errors.length}.</b>{' '}
+          {Array.from(byType, ([type, n]) => `${type} — ${n}`).join('; ')}.
+        </div>
+      </div>
+      <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-md border border-amber-100 bg-white/60 p-2 text-xs">
+        {validation.errors.slice(0, VALIDATION_ERRORS_SHOWN).map((e, i) => (
+          <p key={i}>{describeValidationError(e)}</p>
+        ))}
+        {validation.errors.length > VALIDATION_ERRORS_SHOWN && (
+          <p className="text-amber-700">
+            …и ещё {validation.errors.length - VALIDATION_ERRORS_SHOWN}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function describeValidationError(e: Record<string, unknown>): string {
+  const where = e.field_id ? `Поле ${e.field_id}: ` : ''
+  switch (e.type) {
+    case 'Недостаточная площадь (жёсткое)':
+      return `${e.culture}: ${Number(e.actual).toFixed(0)} га из ${Number(e.target).toFixed(0)} га (минимум ${Number(e.min_required).toFixed(0)} га)`
+    case CHEM_ERROR_TYPE:
+      return `${where}${e.culture} — ${e.reason}`
+    case 'Ранний возврат':
+      return `${where}${e.culture} через ${e.years_gap} г. (нужно ${e.required} г.)`
+    case 'Повтор культуры подряд':
+      return `${where}${e.culture} ${e.consecutive_years}-й год подряд (можно ${e.max_consecutive})`
+    case 'Неподходящий предшественник':
+      return `${where}${e.culture} после «${e.predecessor}»`
+    default:
+      return `${where}${String(e.type)}`
+  }
+}
 
 export default function ResultsPage() {
   const { cropTargets, hardRatio, softRatio, weightAdjacency } =
@@ -306,6 +370,8 @@ export default function ResultsPage() {
             />
           </div>
 
+          {result.validation && <ValidationPanel validation={result.validation} />}
+
           {/* Агрономический балл плана по факторам формирования СПП.
               Блок появляется только у прогонов, где балл считался. */}
           {info.factor_score_area_avg != null && (
@@ -432,8 +498,12 @@ export default function ResultsPage() {
                     <p className="text-xs text-red-600">До оптимизации</p>
                   </div>
                   <div className="rounded-lg bg-green-50 p-4 text-center">
-                    <p className="text-2xl font-bold text-green-700">0</p>
-                    <p className="text-xs text-green-600">После оптимизации</p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {result.validation
+                        ? result.validation.errors.filter((e) => e.type === CHEM_ERROR_TYPE).length
+                        : '—'}
+                    </p>
+                    <p className="text-xs text-green-600">После оптимизации (валидатор)</p>
                   </div>
                 </div>
                 {result.original_violations && result.original_violations.length > 0 && (

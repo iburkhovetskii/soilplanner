@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     results_dir: Path = Path(__file__).parent.parent / "results"
 
     # Solver
-    solver_max_time: int = 120
+    solver_max_time: int = 45
     solver_workers: int = 8
 
     # CORS

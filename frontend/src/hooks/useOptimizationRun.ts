@@ -8,6 +8,9 @@ interface StreamMessage {
   message?: string
   data?: OptimizationResult
   objective?: number
+  solutions?: number
+  rotation_errors?: number
+  elapsed?: number
 }
 
 /**
@@ -67,7 +70,13 @@ export function useOptimizationRun() {
           if (data.type === 'status') {
             setStatusMessage(data.message || '')
           } else if (data.type === 'progress') {
-            setStatusMessage(`Решение найдено... objective=${data.objective}`)
+            const errors = data.rotation_errors === undefined
+              ? ''
+              : `, ошибок севооборота: ${data.rotation_errors}`
+            setStatusMessage(
+              `Решение №${data.solutions ?? '?'} за ${data.elapsed ?? '?'} с${errors}, ` +
+              `цель ${data.objective}. Улучшаем...`,
+            )
           } else if (data.type === 'result' && data.data) {
             setResult(data.data)
             success = true

@@ -72,7 +72,7 @@ def validate_solution(
                 'reason': forbidden[culture]
             })
 
-    # 3. Возврат
+    # 3. Возврат и повтор подряд — те же правила, что штрафует солвер
     for _, row in df_optimized.iterrows():
         field_id = row['field_id']
         culture = row['culture_unified']
@@ -82,12 +82,12 @@ def validate_solution(
         rules = return_rules.get(culture, {'years_to_return': 4, 'max_consecutive': 1})
         years_required = rules['years_to_return']
         max_consec = rules['max_consecutive']
+        history = field_history.get(field_id, {})
 
         for hist_year in range(int(planning_year) - years_required + 1, int(planning_year)):
-            hist_culture = field_history.get(field_id, {}).get(hist_year, None)
-            if hist_culture == culture:
+            if history.get(hist_year) == culture:
                 years_gap = planning_year - hist_year
-                if years_gap > max_consec and years_gap < years_required:
+                if 1 < years_gap < years_required:
                     errors.append({
                         'type': 'Ранний возврат',
                         'field_id': field_id,
@@ -96,6 +96,20 @@ def validate_solution(
                         'required': years_required
                     })
                     break
+
+        consecutive = 0
+        for hist_year in range(int(planning_year) - 1, int(planning_year) - max_consec - 2, -1):
+            if history.get(hist_year) != culture:
+                break
+            consecutive += 1
+        if consecutive >= max_consec:
+            errors.append({
+                'type': 'Повтор культуры подряд',
+                'field_id': field_id,
+                'culture': culture,
+                'consecutive_years': consecutive + 1,
+                'max_consecutive': max_consec,
+            })
 
     # 4. Предшественники
     prev_year = planning_year - 1

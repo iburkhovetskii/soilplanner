@@ -33,11 +33,12 @@ from app.core.chemical import (
 class SolverProgressCallback(cp_model.CpSolverSolutionCallback):
     """Callback для отслеживания прогресса солвера."""
 
-    def __init__(self, progress_fn=None):
+    def __init__(self, progress_fn=None, error_vars=None):
         super().__init__()
         self._start_time = time.time()
         self._solutions = 0
         self._progress_fn = progress_fn
+        self._error_vars = list(error_vars or [])
 
     def on_solution_callback(self):
         self._solutions += 1
@@ -48,6 +49,7 @@ class SolverProgressCallback(cp_model.CpSolverSolutionCallback):
                 'type': 'progress',
                 'solutions': self._solutions,
                 'objective': int(obj),
+                'rotation_errors': sum(self.Value(e) for e in self._error_vars),
                 'elapsed': round(elapsed, 1),
             })
 
@@ -96,7 +98,7 @@ def optimize_rotation_with_chemicals(
     hard_ratio: float = 0.90,
     soft_ratio: float = 1.00,
     progress_fn=None,
-    max_time: int = 120,
+    max_time: int = 45,
     num_workers: int = 8,
     weight_compactness: int = WEIGHT_COMPACTNESS,
     weight_adjacency: int = 0,
@@ -610,7 +612,7 @@ def optimize_rotation_with_chemicals(
     solver.parameters.log_to_stdout = False
     solver.log_callback = lambda line: logger.info("[cp-sat] %s", line.rstrip())
 
-    callback = SolverProgressCallback(progress_fn) if progress_fn else None
+    callback = SolverProgressCallback(progress_fn, error_vars) if progress_fn else None
 
     # Решаем в два этапа, когда включён балл факторов.
     #
@@ -816,6 +818,9 @@ def optimize_rotation_with_chemicals(
             'adjacency_radius_m': adjacency_radius_m,
             'solve_time': round(solve_time, 1),
             'status': solver.StatusName(status),
+            'n_fields_total': len(fields),
+            'n_fields_model': len(optimizable_fields),
+            'n_cultures_model': len(opt_cultures),
         }
 
         return pd.DataFrame(optimized_plan), result_info

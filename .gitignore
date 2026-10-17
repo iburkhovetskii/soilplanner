@@ -1,0 +1,16 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+frontend/dist/
+
+# Данные заказчика и артефакты запусков — не в git
+backend/data
+backend/logs/
+backend/results/
+data 2/
+data 3/
+data 4/
+data 5/
+data_part01/
